@@ -1,10 +1,8 @@
-// components/MetaInput.js
 import { useState } from 'react';
-import { Button, StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View, TouchableOpacity, Text } from 'react-native';
 import { rotulo_btn_cadastro_meta, rotulo_input_meta } from '../mensagens';
 
 export default function MetaInput(props) {
-  // Estado local para guardar o que o usuário está digitando
   const [inputMetaText, setInputMetaText] = useState('');
 
   function metaInputHandler(enteredText) {
@@ -12,8 +10,8 @@ export default function MetaInput(props) {
   }
 
   function addMetaHandler() {
-    props.onAddMeta(inputMetaText); // Envia o texto para o App.js
-    setInputMetaText(''); // Limpa o campo após adicionar
+    props.onAddMeta(inputMetaText);
+    setInputMetaText('');
   }
 
   return (
@@ -21,13 +19,16 @@ export default function MetaInput(props) {
       <View style={{ width: '65%' }}>
         <TextInput
           style={styles.inputText}
-          placeholder={rotulo_input_meta}
+          placeholder={rotulo_input_meta || "Digite a sua meta"}
           onChangeText={metaInputHandler}
           value={inputMetaText}
         />
       </View>
       <View style={{ width: '30%' }}>
-        <Button title={rotulo_btn_cadastro_meta} onPress={addMetaHandler} />
+        {/* Usamos TouchableOpacity para controlar 100% o estilo do botão */}
+        <TouchableOpacity style={styles.button} onPress={addMetaHandler}>
+          <Text style={styles.buttonText}>{rotulo_btn_cadastro_meta || "ADICIONAR"}</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -37,10 +38,23 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   inputText: {
     borderColor: '#cccccc',
     borderWidth: 1,
-    padding: 8, // Um paddingzinho para o texto não ficar colado na borda
+    padding: 8,
+    borderRadius: 4,
   },
+  button: {
+    backgroundColor: '#5e0acc',
+    paddingVertical: 10,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 12,
+  }
 });
