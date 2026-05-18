@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { authRequired } from '../middlewares/auth.js';
 import {
   transactionCreateSchema,
   transactionUpdateSchema,
@@ -7,17 +8,37 @@ import {
 
 const router = Router();
 
+router.use(authRequired);
+
+function buildDateRange({ month, year, from, to }) {
+  if (month && year) {
+    const m = Number(month);
+    const y = Number(year);
+    if (!Number.isFinite(m) || !Number.isFinite(y) || m < 1 || m > 12) return null;
+    const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
+    const end = new Date(y, m, 1, 0, 0, 0, 0);
+    return { gte: start, lt: end };
+  }
+  if (from || to) {
+    const range = {};
+    if (from) range.gte = new Date(String(from));
+    if (to) range.lte = new Date(String(to));
+    return range;
+  }
+  return null;
+}
+
 router.get('/', async (req, res, next) => {
   try {
-    const { type, categoryId, from, to } = req.query;
+    const { categoryId, isIncome, month, year, from, to } = req.query;
     const where = {};
-    if (type) where.type = String(type).toUpperCase();
+
     if (categoryId) where.categoryId = Number(categoryId);
-    if (from || to) {
-      where.date = {};
-      if (from) where.date.gte = new Date(String(from));
-      if (to) where.date.lte = new Date(String(to));
+    if (isIncome === 'true' || isIncome === 'false') {
+      where.category = { isIncome: isIncome === 'true' };
     }
+    const range = buildDateRange({ month, year, from, to });
+    if (range) where.date = range;
 
     const transactions = await prisma.transaction.findMany({
       where,
@@ -32,23 +53,44 @@ router.get('/', async (req, res, next) => {
 
 router.get('/summary', async (req, res, next) => {
   try {
-    const grouped = await prisma.transaction.groupBy({
-      by: ['type'],
-      _sum: { amount: true },
+    const { month, year, from, to } = req.query;
+    const where = {};
+    const range = buildDateRange({ month, year, from, to });
+    if (range) where.date = range;
+
+    const transactions = await prisma.transaction.findMany({
+      where,
+      include: { category: true },
     });
 
     let income = 0;
     let expense = 0;
-    for (const g of grouped) {
-      const value = Number(g._sum.amount ?? 0);
-      if (g.type === 'INCOME') income = value;
-      if (g.type === 'EXPENSE') expense = value;
+    const byCategory = new Map();
+
+    for (const t of transactions) {
+      const v = Number(t.value);
+      const isInc = t.category.isIncome;
+      if (isInc) income += v;
+      else expense += v;
+
+      const key = t.category.id;
+      const acc = byCategory.get(key) || {
+        categoryId: key,
+        name: t.category.name,
+        displayName: t.category.displayName,
+        background: t.category.background,
+        isIncome: isInc,
+        total: 0,
+      };
+      acc.total += v;
+      byCategory.set(key, acc);
     }
 
     res.json({
       income,
       expense,
       balance: income - expense,
+      byCategory: Array.from(byCategory.values()),
     });
   } catch (err) {
     next(err);

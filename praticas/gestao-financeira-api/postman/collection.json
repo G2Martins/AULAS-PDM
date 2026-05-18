@@ -1,0 +1,318 @@
+{
+  "info": {
+    "name": "Gestão Financeira API",
+    "_postman_id": "b8b9e0d1-2a3a-4f1c-9a0f-7c1f0c0c0c0c",
+    "description": "Collection oficial da API gestao-financeira-api (Express + Prisma + MySQL + JWT).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" },
+    { "key": "categoryId", "value": "" },
+    { "key": "customCategoryId", "value": "" },
+    { "key": "transactionId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health-check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/", "host": ["{{baseUrl}}"], "path": [""] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('ok = true', () => pm.expect(body.ok).to.eql(true));",
+              "pm.test('name = gestao-financeira-api', () => pm.expect(body.name).to.eql('gestao-financeira-api'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Register",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Usuário Postman\",\n  \"email\": \"postman@gestao.com\",\n  \"password\": \"postman123\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if ([201, 409].includes(pm.response.code)) {",
+              "  pm.test('Register OK ou já existe', () => {});",
+              "} else {",
+              "  pm.test('Falhou register', () => pm.response.to.have.status(201));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Login (captura token)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"postman@gestao.com\",\n  \"password\": \"postman123\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('token', body.token);",
+              "pm.test('Token recebido', () => pm.expect(body.token).to.be.a('string'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Me",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] }
+      }
+    },
+    {
+      "name": "Categories - List (captura income id)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{baseUrl}}/categories", "host": ["{{baseUrl}}"], "path": ["categories"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const list = pm.response.json();",
+              "pm.test('Pelo menos 5 categorias padrão', () => pm.expect(list.length).to.be.at.least(5));",
+              "const income = list.find(c => c.name === 'income');",
+              "if (income) { pm.collectionVariables.set('categoryId', income.id); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories - Create",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"health\",\n  \"displayName\": \"Saúde\",\n  \"icon\": \"favorite\",\n  \"background\": \"#FFB6B6\",\n  \"isIncome\": false\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/categories", "host": ["{{baseUrl}}"], "path": ["categories"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "  const body = pm.response.json();",
+              "  pm.collectionVariables.set('customCategoryId', body.id);",
+              "  pm.test('Criou customizada', () => pm.expect(body.isDefault).to.eql(false));",
+              "} else if (pm.response.code === 409) {",
+              "  pm.test('Já existia (duplicada)', () => {});",
+              "} else {",
+              "  pm.test('Esperava 201 ou 409', () => pm.response.to.have.status(201));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories - Update",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"displayName\": \"Saúde e Bem-estar\" }"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/categories/{{customCategoryId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["categories", "{{customCategoryId}}"]
+        }
+      }
+    },
+    {
+      "name": "Categories - Delete (custom)",
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/categories/{{customCategoryId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["categories", "{{customCategoryId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Status 204', () => pm.response.to.have.status(204));"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories - Delete default (esperado 400)",
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/categories/{{categoryId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["categories", "{{categoryId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Mensagem padrão bloqueada', () => pm.expect(body.error).to.eql('Categorias padrão não podem ser excluídas'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transactions - Create",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"description\": \"Salário de outubro\",\n  \"value\": 3500.50,\n  \"date\": \"2026-04-29\",\n  \"categoryId\": {{categoryId}}\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/transactions", "host": ["{{baseUrl}}"], "path": ["transactions"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Category aninhada', () => pm.expect(body.category).to.be.an('object'));",
+              "pm.collectionVariables.set('transactionId', body.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transactions - List",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{baseUrl}}/transactions", "host": ["{{baseUrl}}"], "path": ["transactions"] }
+      }
+    },
+    {
+      "name": "Transactions - Summary",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/transactions/summary",
+          "host": ["{{baseUrl}}"],
+          "path": ["transactions", "summary"]
+        }
+      }
+    },
+    {
+      "name": "Transactions - Delete",
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/transactions/{{transactionId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["transactions", "{{transactionId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Status 204', () => pm.response.to.have.status(204));"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Validação - body inválido",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{ \"description\": \"\" }" },
+        "url": { "raw": "{{baseUrl}}/transactions", "host": ["{{baseUrl}}"], "path": ["transactions"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('error = Dados inválidos', () => pm.expect(body.error).to.eql('Dados inválidos'));",
+              "pm.test('details é array', () => pm.expect(body.details).to.be.an('array'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

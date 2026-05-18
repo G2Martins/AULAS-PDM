@@ -2,29 +2,31 @@
 
 API REST do projeto **Gestão Financeira** — backend que serve o app Expo [`gestao-financeira/`](../gestao-financeira/).
 
-Stack: **Node.js + Express + Prisma ORM + MySQL + Zod**.
+Stack: **Node.js + Express + Prisma ORM + MySQL + Zod + JWT + bcryptjs**.
 
 ---
 
-## 📦 Stack e dependências
+## 📦 Dependências
 
 | Pacote | Função |
 | :--- | :--- |
 | `express` | Framework HTTP. |
-| `cors` | Libera chamadas do app Expo (origem diferente). |
-| `dotenv` | Carrega variáveis de ambiente do `.env`. |
-| `zod` | Validação de payloads (POST/PUT). |
-| `@prisma/client` | Cliente do ORM (consulta o MySQL). |
-| `prisma` *(dev)* | CLI do ORM (migrations, generate, studio). |
-| `nodemon` *(dev)* | Reinicia o servidor a cada alteração no código. |
+| `cors` | Libera chamadas do app Expo. |
+| `dotenv` | Carrega `.env`. |
+| `zod` | Validação dos payloads. |
+| `bcryptjs` | Hash da senha do usuário. |
+| `jsonwebtoken` | Emite/valida tokens JWT. |
+| `@prisma/client` | Cliente ORM (MySQL). |
+| `prisma` *(dev)* | CLI do ORM. |
+| `nodemon` *(dev)* | Hot-reload do servidor. |
 
 ---
 
 ## 🧰 Pré-requisitos
 
 - **Node.js 18+**
-- **MySQL 8** rodando em `localhost:3306`
-- Banco `gestao_financeira` criado (UTF-8):
+- **MySQL 8** em `localhost:3306`
+- Banco criado:
   ```sql
   CREATE DATABASE gestao_financeira CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
   ```
@@ -34,36 +36,33 @@ Stack: **Node.js + Express + Prisma ORM + MySQL + Zod**.
 ## 🚀 Setup do zero
 
 ```bash
-# 1. Instalar dependências
 npm install
 
-# 2. Configurar credenciais em .env
-#    DATABASE_URL="mysql://root:SUA_SENHA@localhost:3306/gestao_financeira"
-#    PORT=3000
+# .env (já existe)
+#   DATABASE_URL="mysql://root:SUA_SENHA@localhost:3306/gestao_financeira"
+#   PORT=3000
+#   JWT_SECRET="dev-secret-troque-em-prod"
+#   JWT_EXPIRES_IN="7d"
 
-# 3. Aplicar migrations (cria tabelas Category e Transaction)
 npx prisma migrate dev --name init
-
-# 4. Popular categorias padrão (Salário, Alimentação, etc.)
 npm run prisma:seed
-
-# 5. Subir API em modo dev (hot-reload)
 npm run dev
 ```
 
-API responde em **`http://localhost:3000`**. Health check: `GET /` → `{ "name": "gestao-financeira-api", "status": "ok" }`.
+API responde em `http://localhost:3000`.
+Health: `GET /` → `{ "ok": true, "name": "gestao-financeira-api" }`.
 
 ---
 
-## 📜 Scripts (`package.json`)
+## 📜 Scripts
 
 | Script | O que faz |
 | :--- | :--- |
-| `npm run dev` | Sobe o servidor com `nodemon` (reinicia ao salvar). |
-| `npm start` | Sobe o servidor em modo produção (`node`). |
-| `npm run prisma:migrate` | Cria/aplica nova migration (`prisma migrate dev`). |
-| `npm run prisma:seed` | Executa `prisma/seed.js` (popula categorias). |
-| `npm run prisma:studio` | Abre o Prisma Studio (GUI do banco) em `localhost:5555`. |
+| `npm run dev` | Sobe com `nodemon`. |
+| `npm start` | Sobe em produção (`node`). |
+| `npm run prisma:migrate` | `prisma migrate dev`. |
+| `npm run prisma:seed` | Roda `prisma/seed.js`. |
+| `npm run prisma:studio` | Prisma Studio em `localhost:5555`. |
 
 ---
 
@@ -73,59 +72,64 @@ API responde em **`http://localhost:3000`**. Health check: `GET /` → `{ "name"
 gestao-financeira-api/
 ├── 📁 prisma
 │   ├── 📁 migrations
-│   │   ├── 📁 20260507030601_init
-│   │   │   └── 📄 migration.sql
-│   │   └── ⚙️ migration_lock.toml
-│   ├── 📄 schema.prisma         # Modelos Category e Transaction
-│   └── 📄 seed.js               # Categorias padrão (upsert idempotente)
+│   ├── 📄 schema.prisma     # User, Category, Transaction
+│   └── 📄 seed.js           # 5 categorias padrão + usuário demo
+├── 📁 postman
+│   └── 📄 collection.json   # Collection oficial para testes
 ├── 📁 src
-│   ├── 📁 lib
-│   │   └── 📄 prisma.js         # Singleton do PrismaClient
+│   ├── 📁 lib/prisma.js
 │   ├── 📁 middlewares
-│   │   └── 📄 errorHandler.js   # Trata Zod + códigos Prisma (P2002/P2025/P2003)
+│   │   ├── auth.js          # JWT Bearer
+│   │   └── errorHandler.js  # Zod + Prisma (P2002/P2025/P2003)
 │   ├── 📁 routes
-│   │   ├── 📄 categories.js     # CRUD /categories
-│   │   └── 📄 transactions.js   # CRUD /transactions + /summary
+│   │   ├── auth.js          # /auth/register, /login, /me
+│   │   ├── categories.js    # CRUD (delete bloqueia isDefault)
+│   │   └── transactions.js  # CRUD + /summary + filtros mês/ano
 │   ├── 📁 schemas
-│   │   ├── 📄 categorySchema.js
-│   │   └── 📄 transactionSchema.js
-│   └── 📄 server.js             # App Express, CORS, JSON, error handler
-├── ⚙️ .env                       # DATABASE_URL e PORT (não commitar)
-├── ⚙️ .gitignore
-├── 📝 README.md
-├── ⚙️ package-lock.json
-└── ⚙️ package.json
+│   │   ├── authSchema.js
+│   │   ├── categorySchema.js
+│   │   └── transactionSchema.js
+│   └── 📄 server.js
+├── ⚙️ .env
+├── ⚙️ package.json
+└── 📝 README.md
 ```
 
 ---
 
 ## 🧱 Modelo de dados
 
-### `enum TransactionType`
-- `INCOME` — receita
-- `EXPENSE` — despesa
+### `User`
+| Campo | Tipo |
+| :--- | :--- |
+| `id` | `Int` PK |
+| `name` | `String` |
+| `email` | `String` **único** |
+| `password` | `String` (hash bcrypt) |
+| `createdAt` / `updatedAt` | auto |
 
 ### `Category`
 | Campo | Tipo | Notas |
 | :--- | :--- | :--- |
-| `id` | `Int` | PK, auto-incremento |
-| `name` | `String` | **único** |
-| `type` | `TransactionType` | `INCOME` ou `EXPENSE` |
-| `color` | `String?` | Hex (ex.: `#16a34a`) |
-| `icon` | `String?` | Nome do ícone |
-| `createdAt` / `updatedAt` | `DateTime` | Auto |
+| `id` | `Int` | PK |
+| `name` | `String` | slug **único** (`income`, `food`, …) |
+| `displayName` | `String` | nome amigável |
+| `icon` | `String?` | nome do ícone (Material) |
+| `background` | `String?` | hex `#RRGGBB` |
+| `isIncome` | `Boolean` | receita (`true`) ou despesa (`false`) |
+| `isDefault` | `Boolean` | bloqueia exclusão se `true` |
+
+Seed cria 5 padrão: `income`, `food`, `transport`, `leisure`, `others`.
 
 ### `Transaction`
 | Campo | Tipo | Notas |
 | :--- | :--- | :--- |
 | `id` | `Int` | PK |
 | `description` | `String` | obrigatório |
-| `amount` | `Decimal(12,2)` | positivo |
-| `type` | `TransactionType` | |
+| `value` | `Decimal(12,2)` | positivo |
 | `date` | `DateTime` | default `now()` |
 | `notes` | `String?` | opcional |
 | `categoryId` | `Int` | FK → `Category.id` |
-| `createdAt` / `updatedAt` | `DateTime` | Auto |
 
 Índices em `categoryId` e `date`.
 
@@ -133,81 +137,94 @@ gestao-financeira-api/
 
 ## 🛣️ Rotas
 
-Todas as respostas são **JSON**. Erros seguem o formato:
-```json
-{ "error": "mensagem", "issues": [ /* só em validação Zod */ ] }
-```
+> Todas as rotas (exceto `/`, `/auth/register`, `/auth/login`) exigem **`Authorization: Bearer <token>`**.
+
+### Health
+- `GET /` → `{ ok: true, name: "gestao-financeira-api" }`
+
+### Auth — `/auth`
+| Método | Path | Body | Retorno |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/auth/register` | `{ name, email, password }` | `201 { user, token }` |
+| `POST` | `/auth/login` | `{ email, password }` | `200 { user, token }` |
+| `GET` | `/auth/me` | — | `200 user` |
 
 ### Categorias — `/categories`
-
-| Método | Path | Descrição |
+| Método | Path | Notas |
 | :--- | :--- | :--- |
-| `GET` | `/categories` | Lista tudo. Query opcional `?type=INCOME` ou `?type=EXPENSE`. |
-| `GET` | `/categories/:id` | Busca por id. |
-| `POST` | `/categories` | Cria. Body: `{ name, type, color?, icon? }`. |
-| `PUT` | `/categories/:id` | Atualiza parcialmente. |
-| `DELETE` | `/categories/:id` | Remove. |
-
-**Exemplo:**
-```bash
-curl -X POST http://localhost:3000/categories \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Mercado","type":"EXPENSE","color":"#ef4444"}'
-```
+| `GET` | `/categories[?isIncome=true|false]` | lista (default primeiro) |
+| `GET` | `/categories/:id` | |
+| `POST` | `/categories` | `{ name, displayName, icon?, background?, isIncome? }` |
+| `PUT` | `/categories/:id` | parcial |
+| `DELETE` | `/categories/:id` | **400** se `isDefault` |
 
 ### Transações — `/transactions`
-
-| Método | Path | Descrição |
+| Método | Path | Notas |
 | :--- | :--- | :--- |
-| `GET` | `/transactions` | Lista (mais recentes primeiro). Filtros: `type`, `categoryId`, `from`, `to`. |
-| `GET` | `/transactions/summary` | Retorna `{ income, expense, balance }` agregado. |
-| `GET` | `/transactions/:id` | Busca por id (inclui `category`). |
-| `POST` | `/transactions` | Cria. Body: `{ description, amount, type, date?, notes?, categoryId }`. |
-| `PUT` | `/transactions/:id` | Atualiza parcialmente. |
-| `DELETE` | `/transactions/:id` | Remove. |
-
-**Exemplo:**
-```bash
-curl -X POST http://localhost:3000/transactions \
-  -H "Content-Type: application/json" \
-  -d '{"description":"Compra do mês","amount":350.50,"type":"EXPENSE","categoryId":4}'
-```
+| `GET` | `/transactions[?categoryId=&isIncome=&month=&year=&from=&to=]` | inclui `category` |
+| `GET` | `/transactions/summary[?month=&year=]` | `{ income, expense, balance, byCategory[] }` |
+| `GET` | `/transactions/:id` | |
+| `POST` | `/transactions` | `{ description, value, date?, notes?, categoryId }` |
+| `PUT` | `/transactions/:id` | parcial |
+| `DELETE` | `/transactions/:id` | |
 
 ---
 
-## ⚠️ Erros mais comuns
+## ⚠️ Erros
 
-| Status | Quando | Resposta |
+| Status | Quando | Body |
 | :--- | :--- | :--- |
-| `400` | Payload inválido (Zod) | `{ error: "Dados inválidos", issues: [...] }` |
-| `400` | `categoryId` inexistente (Prisma `P2003`) | `{ error: "Categoria informada não existe" }` |
-| `404` | Recurso não existe (`P2025`) | `{ error: "Registro não encontrado" }` |
-| `409` | `name` duplicado (`P2002`) | `{ error: "Registro duplicado", target: [...] }` |
-| `500` | Erro inesperado | `{ error: "Erro interno do servidor" }` |
+| `400` | Zod inválido | `{ error: "Dados inválidos", details: [{path, message}] }` |
+| `400` | `categoryId` inexistente (`P2003`) | `{ error: "Categoria informada não existe" }` |
+| `400` | Tentou excluir default | `{ error: "Categorias padrão não podem ser excluídas" }` |
+| `401` | Sem/Token inválido | `{ error: "Token não fornecido / inválido ou expirado" }` |
+| `401` | Login | `{ error: "Credenciais inválidas" }` |
+| `404` | Não encontrado | `{ error: "..." }` |
+| `409` | Duplicado | `{ error: "Registro duplicado", target }` |
+| `500` | Erro interno | `{ error: "Erro interno do servidor" }` |
+
+---
+
+## 📮 Postman
+
+A collection oficial fica em [`postman/collection.json`](./postman/collection.json).
+
+**Importar:** Postman → Import → arrastar o arquivo. A collection já traz:
+- variável `baseUrl = http://localhost:3000`
+- requisição **Auth - Login** que captura `{{token}}` automaticamente em `collectionVariables`
+- todas as outras requisições já usam `Authorization: Bearer {{token}}`
+
+**Roteiro de testes (na ordem):**
+1. `Health-check` → confirma `ok: true`.
+2. `Auth - Register` → cria `postman@gestao.com` (ou 409 se já existir).
+3. `Auth - Login` → captura `token`.
+4. `Categories - List` → captura `categoryId` da `income`.
+5. `Categories - Create` → cria `health` (Saúde).
+6. `Categories - Update` → renomeia para "Saúde e Bem-estar".
+7. `Categories - Delete (custom)` → 204.
+8. `Categories - Delete default` → **400** "Categorias padrão não podem ser excluídas".
+9. `Transactions - Create` → cria "Salário de outubro" usando `{{categoryId}}`.
+10. `Transactions - List` / `Transactions - Summary`.
+11. `Transactions - Delete` → 204.
+12. `Validação - body inválido` → **400** com `error: "Dados inválidos"` + `details`.
 
 ---
 
 ## 🔌 Conexão com o app Expo
 
-No app [`gestao-financeira/`](../gestao-financeira/), crie `.env`:
+No app [`gestao-financeira/`](../gestao-financeira/) crie `.env`:
 
-- **Emulador Android (Studio)** → `EXPO_PUBLIC_API_URL=http://10.0.2.2:3000`
-- **Celular físico via Expo Go** → `EXPO_PUBLIC_API_URL=http://SEU_IP_LAN:3000`
-  - `ipconfig` → procurar `Endereço IPv4` (ex.: `192.168.0.47`)
+- **Emulador Android** → `EXPO_PUBLIC_API_URL=http://10.0.2.2:3000`
+- **Celular físico** → `EXPO_PUBLIC_API_URL=http://SEU_IP_LAN:3000`
+  - `ipconfig` → IPv4
   - PC e celular no mesmo Wi-Fi
-  - Liberar Node.js no Firewall (rede privada)
-
-Uso simples:
-```js
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
-fetch(`${API_URL}/categories`).then(r => r.json());
-```
+  - Firewall: libere Node.js em rede privada
 
 ---
 
-## 🧪 Testar via Prisma Studio
+## 👤 Conta de teste (seed)
 
-```bash
-npm run prisma:studio
 ```
-Abre GUI em `http://localhost:5555` para inspecionar/editar dados direto no banco.
+email:    demo@gestao.com
+senha:    demo123
+```

@@ -1,81 +1,79 @@
 # 📱 gestao-financeira (App)
 
-Aplicativo mobile do projeto **Gestão Financeira** — front-end em React Native (Expo) que consome a API [`gestao-financeira-api/`](../gestao-financeira-api/) para registrar receitas, despesas e categorias do usuário.
+App mobile do projeto **Gestão Financeira** — React Native (Expo) que consome a API [`gestao-financeira-api/`](../gestao-financeira-api/).
 
-Stack: **Expo + React Native + Context API + fetch**.
+Stack: **Expo + React Native + Context API + AsyncStorage + react-native-chart-kit + JWT**.
 
 ---
 
 ## ✨ Funcionalidades
 
-- 📊 **Início (Dashboard):** cards de Receitas, Despesas e Saldo + lista das movimentações recentes (com pull-to-refresh).
-- 💸 **Transações:** cadastra, lista e remove transações (com seleção dinâmica da categoria por tipo).
-- 🏷️ **Categorias:** cadastra, lista e remove categorias (Receita ou Despesa).
-- 🔄 Estado global compartilhado via **Context API** — qualquer alteração reflete instantaneamente em todas as telas.
-- 🌐 Conexão configurável por `.env` (suporta emulador e celular físico).
+- 🔐 **Login e cadastro** — autenticação via API (JWT em AsyncStorage).
+- 👋 **Boas-vindas** com nome do usuário autenticado no topo e no Dashboard.
+- 📅 **Filtro de mês/ano** nas listas de transações e no resumo.
+- 📊 **Dashboard** com cards (Receitas / Despesas / Saldo) + **gráfico de pizza** de despesas por categoria.
+- ✏️ **Editar e excluir transações** via **toque longo** (modal de edição).
+- 🏷️ **Categorias customizadas** além das 5 padrão (Receita, Alimentação, Transporte, Lazer, Outros).
+  - Padrão são bloqueadas para exclusão (cadeado 🔒).
+- 🌐 Conexão configurável por `.env` (emulador e celular físico).
 
 ---
 
 ## 🧰 Pré-requisitos
 
 - **Node.js 18+**
-- **API rodando** em `http://localhost:3000` ([`gestao-financeira-api`](../gestao-financeira-api/))
-- Uma das opções abaixo para testar o app:
-  - **Emulador Android** via Android Studio (AVD)
-  - **Expo Go** instalado no celular físico (mesmo Wi-Fi do PC)
+- **API rodando** em `http://localhost:3000` (ver [`gestao-financeira-api`](../gestao-financeira-api/)).
+- Para testar:
+  - **Emulador Android** (Android Studio AVD), **ou**
+  - **Expo Go** no celular (mesmo Wi-Fi do PC).
 
 ---
 
 ## 🚀 Setup do zero
 
 ```bash
-# 1. Instalar dependências
 npm install
 
-# 2. Criar .env (ver seção abaixo)
+# crie o .env (ver próxima seção)
 
-# 3. Subir Metro Bundler
 npx expo start
+# pressione "a" para abrir no emulador Android
+# ou escaneie o QR Code no Expo Go
 ```
 
-No terminal do Expo:
-- Pressione **`a`** para abrir no emulador Android.
-- Ou escaneie o QR Code com o app **Expo Go** no celular.
-
-> ⚠️ A API precisa estar rodando **antes** de abrir o app — caso contrário aparecerá uma barra vermelha com erro de rede.
+> ⚠️ Suba a API **antes** de abrir o app — caso contrário aparecerá `API: Network request failed` no topo.
 
 ---
 
-## 🌐 Variáveis de ambiente (`.env`)
+## 🌐 `.env`
 
-Crie `.env` na raiz do app. A variável **deve começar com `EXPO_PUBLIC_`** para ser exposta ao bundle JS.
+Variáveis precisam ter prefixo `EXPO_PUBLIC_` para serem expostas ao bundle.
 
-### 📱 Emulador Android (Android Studio)
+### Emulador Android
 ```
 EXPO_PUBLIC_API_URL=http://10.0.2.2:3000
 ```
-> `10.0.2.2` é o alias que o emulador usa pra acessar o `localhost` do PC.
 
-### 📲 Celular físico (Expo Go)
+### Celular físico (Expo Go)
 ```
-EXPO_PUBLIC_API_URL=http://192.168.0.47:3000
+EXPO_PUBLIC_API_URL=http://SEU_IP_LAN:3000
 ```
-- Descubra seu IP local com `ipconfig` (Windows) → `Endereço IPv4`.
-- PC e celular precisam estar no **mesmo Wi-Fi**.
-- No primeiro acesso, libere o **Node.js no Firewall do Windows** (rede privada).
+- `ipconfig` → procurar `Endereço IPv4` (ex.: `192.168.0.47`).
+- PC e celular no **mesmo Wi-Fi**.
+- Libere Node.js no Firewall (rede privada).
 
-> 🔁 Sempre que mudar o `.env`, **pare e reinicie** o `npx expo start` (variáveis são lidas no boot).
+> 🔁 Após mudar o `.env`, **pare e reinicie** `npx expo start`.
 
 ---
 
-## 📜 Scripts (`package.json`)
+## 📜 Scripts
 
 | Script | O que faz |
 | :--- | :--- |
-| `npm start` / `npx expo start` | Sobe o Metro Bundler. |
-| `npm run android` | Sobe Metro e abre direto no emulador/dispositivo Android. |
-| `npm run ios` | (Apenas macOS) Abre no simulador iOS. |
-| `npm run web` | Abre versão web (Expo Web). |
+| `npm start` / `npx expo start` | Sobe o Metro. |
+| `npm run android` | Abre direto no emulador. |
+| `npm run ios` | Apenas macOS. |
+| `npm run web` | Versão web. |
 
 ---
 
@@ -83,27 +81,26 @@ EXPO_PUBLIC_API_URL=http://192.168.0.47:3000
 
 ```
 gestao-financeira/
-├── 📁 assets/                     # Ícones e splash do Expo
+├── 📁 assets
 ├── 📁 src
 │   ├── 📁 components
-│   │   └── 📄 TabBar.jsx          # Barra de abas customizada
+│   │   ├── TabBar.jsx
+│   │   ├── MonthYearFilter.jsx     # Chips horizontais de mês/ano
+│   │   └── TransactionModal.jsx    # Modal criar/editar transação
 │   ├── 📁 contexts
-│   │   └── 📄 GlobalState.jsx     # Provider + useGlobalState()
+│   │   ├── AuthContext.jsx         # JWT + AsyncStorage
+│   │   └── GlobalState.jsx         # Categorias/Transações/Summary/Filtros
 │   ├── 📁 screens
-│   │   ├── 📄 DashboardScreen.jsx
-│   │   ├── 📄 TransactionsScreen.jsx
-│   │   └── 📄 CategoriesScreen.jsx
+│   │   ├── LoginScreen.jsx
+│   │   ├── RegisterScreen.jsx
+│   │   ├── DashboardScreen.jsx     # Welcome + pie chart + recentes
+│   │   ├── TransactionsScreen.jsx  # FAB + long-press
+│   │   └── CategoriesScreen.jsx
 │   └── 📁 services
-│       └── 📄 api.js              # Cliente HTTP (fetch wrapper)
-├── 📄 App.js                      # Provider raiz + tabs
-├── 📄 index.js                    # Entry-point Expo
-├── ⚙️ .env                        # EXPO_PUBLIC_API_URL (não commitar)
-├── ⚙️ .env.example
-├── ⚙️ app.json                    # Config do Expo
-├── ⚙️ .gitignore
-├── 📝 README.md
-├── ⚙️ package-lock.json
-└── ⚙️ package.json
+│       └── api.js                  # Cliente HTTP com token
+├── 📄 App.js                       # SafeArea + Auth gate + tabs
+├── ⚙️ .env
+└── 📝 README.md
 ```
 
 ---
@@ -111,65 +108,54 @@ gestao-financeira/
 ## 🧠 Arquitetura
 
 ### `services/api.js`
-Wrapper em volta do `fetch` que centraliza:
-- URL base (`EXPO_PUBLIC_API_URL`)
-- Headers JSON
-- Serialização de body
-- Conversão de query string nas listagens
-- Tratamento de erro padronizado (lança `Error` com a mensagem do backend)
+Wrapper sobre `fetch` com:
+- URL base via `EXPO_PUBLIC_API_URL`
+- **Token JWT injetado automaticamente** (`setAuthToken`)
+- Tratamento padrão de erro (lança `Error` com `status` e `details` do backend)
+- Query-string para filtros (`month`, `year`, `categoryId`, `isIncome`, `from`, `to`)
 
-Expõe um objeto `api` com os métodos:
-```
-listCategories(type?), createCategory(payload), updateCategory(id, payload), deleteCategory(id)
-listTransactions(filters?), getSummary(), createTransaction(payload),
-  updateTransaction(id, payload), deleteTransaction(id)
-```
+### `contexts/AuthContext.jsx`
+Mantém `user`, `token`, `isAuthenticated`. Persiste em `AsyncStorage` (chaves `@gestao-financeira:token` e `@gestao-financeira:user`). Expõe `login`, `register`, `logout`.
 
 ### `contexts/GlobalState.jsx`
-Context API que mantém:
-- `categories`, `transactions`, `summary` (estado em memória)
-- `loading`, `error` (UI)
-- Helpers: `addCategory`, `removeCategory`, `addTransaction`, `removeTransaction`, `refreshAll`
-
-Atualiza otimisticamente a lista local **e** dispara refresh do `summary` após mutações em transações para manter o saldo consistente.
-
-Hook de uso:
-```js
-import { useGlobalState } from './src/contexts/GlobalState';
-
-const { categories, addCategory } = useGlobalState();
-```
+Estado global de `categories`, `transactions`, `summary` (`{ income, expense, balance, byCategory[] }`) e `filter` (`{ month, year }`). Recarrega automaticamente ao mudar o filtro. Atualização otimista nas mutações + refresh do summary.
 
 ### `App.js`
-Composição: `SafeAreaProvider` → `GlobalStateProvider` → `AppShell` (header + telas + `TabBar`).
+Composição: `SafeAreaProvider → AuthProvider → AuthGate`. Quando autenticado: `GlobalStateProvider → AppShell` (header + tabs + telas).
 
 ---
 
-## 🧪 Como testar o fluxo
+## 🧪 Fluxo de teste
 
-1. Sobe a API ([instruções](../gestao-financeira-api/README.md)) — confirma `Seed: 10 categorias garantidas.`
+1. Sobe a API ([instruções](../gestao-financeira-api/README.md)).
 2. Sobe o app: `npx expo start` → `a` (emulador) ou QR Code.
-3. Aba **Categorias** → crie "Mercado" como **Despesa**.
-4. Aba **Transações** → adicione "Compra do mês" R$ 350,00 (Despesa → categoria Mercado).
-5. Aba **Início** → conferir que `Despesas` e `Saldo` atualizaram + a transação aparece em "Movimentações recentes".
-6. Pull-to-refresh na lista do Início → recarrega tudo da API.
+3. **Login** com `demo@gestao.com` / `demo123` (criado pelo seed), ou **Cadastrar** uma conta nova.
+4. Aba **Categorias** → crie "Mercado" (Despesa, cor vermelha).
+5. Aba **Transações** → toque em "+ Nova transação" → "Compra do mês" R$ 350,00 (Despesa → Mercado).
+6. Aba **Início** → confira filtro de mês, cards atualizados e o **gráfico de pizza** com a fatia de Mercado.
+7. Na lista de **Transações**, **segure** uma linha → escolha **Editar** ou **Excluir**.
+8. Tente excluir a categoria "Receita" (padrão) → bloqueado com aviso 🔒.
+9. Botão **Sair** no topo → confirma → volta para tela de Login.
 
 ---
 
 ## 🩹 Troubleshooting
 
-| Sintoma | Causa provável | Como resolver |
+| Sintoma | Causa | Resolução |
 | :--- | :--- | :--- |
-| Barra vermelha "API: Network request failed" | API offline ou `EXPO_PUBLIC_API_URL` errada. | Sobe a API; revisa `.env`; reinicia `expo start`. |
-| Funciona no emulador, mas não no celular | IP errado no `.env` ou Firewall bloqueando. | Use IP da LAN do PC (`ipconfig`); libera Node.js no Firewall (rede privada). |
-| `EXPO_PUBLIC_API_URL não definida` no console | `.env` ausente ou variável sem prefixo `EXPO_PUBLIC_`. | Cria `.env` com a chave correta e reinicia o Metro. |
-| "System UI isn't responding" no emulador | Pouca RAM/CPU no AVD. | Device Manager → editar AVD → RAM ≥ 2048 MB; Cold Boot Now. |
-| Categoria não aparece ao criar transação | Tipo do toggle (Receita/Despesa) não casa com o tipo da categoria. | Crie pelo menos uma categoria do tipo desejado. |
+| Barra vermelha "Network request failed" | API offline ou URL errada. | Suba a API; revise `.env`; reinicie Expo. |
+| "Credenciais inválidas" no login | Senha errada ou conta inexistente. | Use `demo@gestao.com` / `demo123` ou cadastre. |
+| Funciona no emulador, falha no celular | IP do `.env`. | Use IP da LAN; libere Firewall. |
+| `EXPO_PUBLIC_API_URL não definida` | Falta `.env` ou prefixo. | Crie `.env` e reinicie Metro. |
+| "System UI isn't responding" | RAM baixa no AVD. | AVD: RAM ≥ 2048 MB + Cold Boot Now. |
+| Gráfico não aparece | Sem despesas no mês filtrado. | Cadastre uma transação de despesa no mês selecionado. |
+| Long-press não dispara | Toque rápido demais. | Segure ~300ms na linha. |
 
 ---
 
 ## 🔗 Links
 
 - 📦 [Backend (`gestao-financeira-api`)](../gestao-financeira-api/)
-- 📚 [Documentação do Expo](https://docs.expo.dev)
+- 📚 [Expo](https://docs.expo.dev)
 - 🧩 [React Native](https://reactnative.dev/docs/getting-started)
+- 📈 [react-native-chart-kit](https://github.com/indiespirit/react-native-chart-kit)
