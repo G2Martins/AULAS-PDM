@@ -38,16 +38,23 @@ Stack: **Node.js + Express + Prisma ORM + MySQL + Zod + JWT + bcryptjs**.
 ```bash
 npm install
 
-# .env (já existe)
+# Crie o .env a partir do exemplo (ajuste DATABASE_URL e JWT_SECRET):
+copy .env.example .env   # Windows
+# cp .env.example .env   # Linux/Mac
+
 #   DATABASE_URL="mysql://root:SUA_SENHA@localhost:3306/gestao_financeira"
 #   PORT=3000
-#   JWT_SECRET="dev-secret-troque-em-prod"
+#   JWT_SECRET="<32+ chars aleatórios>"
 #   JWT_EXPIRES_IN="7d"
 
 npx prisma migrate dev --name init
 npm run prisma:seed
 npm run dev
 ```
+
+> ⚠️ Se `DATABASE_URL` ou `JWT_SECRET` faltarem no `.env`, o servidor encerra no boot
+> com a lista das variáveis ausentes. Isso é proposital — evita silently retornar 500
+> nas rotas (ex.: o `/auth/register` quebraria ao assinar o token).
 
 API responde em `http://localhost:3000`.
 Health: `GET /` → `{ "ok": true, "name": "gestao-financeira-api" }`.

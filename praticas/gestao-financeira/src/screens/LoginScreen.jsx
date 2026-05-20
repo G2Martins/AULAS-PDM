@@ -28,7 +28,11 @@ export function LoginScreen({ onSwitchToRegister }) {
       setLoading(true);
       await login({ email: email.trim(), password });
     } catch (e) {
-      setError(e.message);
+      if (Array.isArray(e.details) && e.details.length > 0) {
+        setError(e.details.map((d) => `${d.path}: ${d.message}`).join('\n'));
+      } else {
+        setError(e.message);
+      }
     } finally {
       setLoading(false);
     }
