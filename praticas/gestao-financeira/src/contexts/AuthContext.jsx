@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, setAuthToken } from '../services/api';
+import { api, setAuthToken, setOnUnauthorized } from '../services/api';
 
 const STORAGE_TOKEN = '@gestao-financeira:token';
 const STORAGE_USER = '@gestao-financeira:user';
@@ -60,6 +60,12 @@ export function AuthProvider({ children }) {
     setToken(null);
     await AsyncStorage.multiRemove([STORAGE_TOKEN, STORAGE_USER]);
   }, []);
+
+  // Registra handler para 401 → encerra sessão automaticamente
+  useEffect(() => {
+    setOnUnauthorized(() => logout());
+    return () => setOnUnauthorized(null);
+  }, [logout]);
 
   const value = useMemo(
     () => ({ user, token, bootstrapping, isAuthenticated: !!token, login, register, logout }),

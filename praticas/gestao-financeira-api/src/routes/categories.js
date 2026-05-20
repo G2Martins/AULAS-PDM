@@ -10,15 +10,23 @@ const router = Router();
 
 router.use(authRequired);
 
+// Categorias visíveis ao usuário: padrão (userId NULL) + as criadas por ele
+function visibilityWhere(userId, extra = {}) {
+  return {
+    ...extra,
+    OR: [{ userId: null }, { userId }],
+  };
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const { isIncome } = req.query;
-    const where = {};
-    if (isIncome === 'true') where.isIncome = true;
-    if (isIncome === 'false') where.isIncome = false;
+    const extra = {};
+    if (isIncome === 'true') extra.isIncome = true;
+    if (isIncome === 'false') extra.isIncome = false;
 
     const categories = await prisma.category.findMany({
-      where,
+      where: visibilityWhere(req.user.id, extra),
       orderBy: [{ isDefault: 'desc' }, { displayName: 'asc' }],
     });
     res.json(categories);
@@ -30,7 +38,9 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const category = await prisma.category.findUnique({ where: { id } });
+    const category = await prisma.category.findFirst({
+      where: { id, OR: [{ userId: null }, { userId: req.user.id }] },
+    });
     if (!category) return res.status(404).json({ error: 'Categoria não encontrada' });
     res.json(category);
   } catch (err) {
@@ -42,7 +52,7 @@ router.post('/', async (req, res, next) => {
   try {
     const data = categoryCreateSchema.parse(req.body);
     const created = await prisma.category.create({
-      data: { ...data, isDefault: false },
+      data: { ...data, isDefault: false, userId: req.user.id },
     });
     res.status(201).json(created);
   } catch (err) {
@@ -58,10 +68,13 @@ router.put('/:id', async (req, res, next) => {
     const existing = await prisma.category.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: 'Categoria não encontrada' });
 
-    if (existing.isDefault && data.name && data.name !== existing.name) {
+    if (existing.isDefault) {
       return res
-        .status(400)
-        .json({ error: 'O slug de categorias padrão não pode ser alterado' });
+        .status(403)
+        .json({ error: 'Categorias padrão não podem ser editadas' });
+    }
+    if (existing.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Você não pode editar essa categoria' });
     }
 
     const updated = await prisma.category.update({ where: { id }, data });
@@ -82,6 +95,9 @@ router.delete('/:id', async (req, res, next) => {
       return res
         .status(400)
         .json({ error: 'Categorias padrão não podem ser excluídas' });
+    }
+    if (existing.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Você não pode excluir essa categoria' });
     }
 
     await prisma.category.delete({ where: { id } });

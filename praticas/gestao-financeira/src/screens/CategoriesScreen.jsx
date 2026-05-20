@@ -11,8 +11,12 @@ import {
 import { useGlobalState } from '../contexts/GlobalState';
 
 const slugify = (s) =>
-  String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  String(s)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 
 const PALETTE = ['#ef4444', '#f97316', '#eab308', '#16a34a', '#0ea5e9', '#6366f1', '#a855f7', '#ec4899', '#64748b'];
 

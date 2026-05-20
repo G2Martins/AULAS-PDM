@@ -26,6 +26,10 @@ export function errorHandler(err, req, res, next) {
     return res.status(400).json({ error: 'Categoria informada não existe' });
   }
 
+  if (typeof err?.status === 'number' && err.status >= 400 && err.status < 500) {
+    return res.status(err.status).json({ error: err.message });
+  }
+
   console.error(err);
   return res.status(500).json({ error: 'Erro interno do servidor' });
 }

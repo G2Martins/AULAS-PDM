@@ -2,12 +2,13 @@
   "info": {
     "name": "Gestão Financeira API",
     "_postman_id": "b8b9e0d1-2a3a-4f1c-9a0f-7c1f0c0c0c0c",
-    "description": "Collection oficial da API gestao-financeira-api (Express + Prisma + MySQL + JWT).",
+    "description": "Collection oficial da API gestao-financeira-api (Express + Prisma + MySQL + JWT).\n\nMulti-usuário: cada token só enxerga as próprias categorias customizadas e transações. As 5 categorias padrão (income, food, transport, leisure, others — userId=NULL) são visíveis a todos.\n\nOrdem importa: rode na sequência (variáveis são encadeadas via test scripts).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:3000" },
     { "key": "token", "value": "" },
+    { "key": "tokenSecondary", "value": "" },
     { "key": "categoryId", "value": "" },
     { "key": "customCategoryId", "value": "" },
     { "key": "transactionId", "value": "" }
@@ -309,6 +310,105 @@
               "const body = pm.response.json();",
               "pm.test('error = Dados inválidos', () => pm.expect(body.error).to.eql('Dados inválidos'));",
               "pm.test('details é array', () => pm.expect(body.details).to.be.an('array'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Multi-user - Register secundário",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman Secundario\",\n  \"email\": \"postman-2@gestao.com\",\n  \"password\": \"postman123\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if ([201, 409].includes(pm.response.code)) {",
+              "  if (pm.response.code === 201) {",
+              "    const body = pm.response.json();",
+              "    pm.collectionVariables.set('tokenSecondary', body.token);",
+              "  }",
+              "  pm.test('Register secundário OK ou já existia', () => {});",
+              "} else {",
+              "  pm.test('Falhou register secundário', () => pm.response.to.have.status(201));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Multi-user - Login secundário",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"postman-2@gestao.com\",\n  \"password\": \"postman123\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('tokenSecondary', body.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Multi-user - Categorias do secundário (só defaults)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{tokenSecondary}}" }],
+        "url": { "raw": "{{baseUrl}}/categories", "host": ["{{baseUrl}}"], "path": ["categories"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const list = pm.response.json();",
+              "const customs = list.filter(c => !c.isDefault);",
+              "pm.test('Usuário secundário não vê customs do primário', () => pm.expect(customs.length).to.eql(0));",
+              "pm.test('Vê as 5 padrão', () => pm.expect(list.filter(c => c.isDefault).length).to.eql(5));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Multi-user - Transações do secundário (vazio)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{tokenSecondary}}" }],
+        "url": { "raw": "{{baseUrl}}/transactions", "host": ["{{baseUrl}}"], "path": ["transactions"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Sem transações do outro usuário', () => pm.expect(pm.response.json()).to.eql([]));"
             ]
           }
         }

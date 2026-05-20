@@ -5,6 +5,7 @@ if (!API_URL) {
 }
 
 let authToken = null;
+let onUnauthorized = null;
 
 export function setAuthToken(token) {
   authToken = token || null;
@@ -12,6 +13,12 @@ export function setAuthToken(token) {
 
 export function getAuthToken() {
   return authToken;
+}
+
+// Callback chamado quando API responde 401 (token expirado/inválido).
+// Registrado pelo AuthProvider para limpar sessão automaticamente.
+export function setOnUnauthorized(handler) {
+  onUnauthorized = typeof handler === 'function' ? handler : null;
 }
 
 const DEFAULT_TIMEOUT_MS = 10000;
@@ -51,6 +58,11 @@ async function request(path, options = {}) {
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    // Token expirado/inválido → notifica AuthProvider para logout automático.
+    // Ignora 401 em /auth/login e /auth/register (são respostas esperadas).
+    if (res.status === 401 && !path.startsWith('/auth/login') && !path.startsWith('/auth/register')) {
+      if (onUnauthorized) onUnauthorized();
+    }
     const message = data?.error || `HTTP ${res.status}`;
     const err = new Error(message);
     err.status = res.status;
