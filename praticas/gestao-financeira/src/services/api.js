@@ -14,6 +14,8 @@ export function getAuthToken() {
   return authToken;
 }
 
+const DEFAULT_TIMEOUT_MS = 10000;
+
 async function request(path, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
@@ -21,11 +23,29 @@ async function request(path, options = {}) {
   };
   if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), options.timeout ?? DEFAULT_TIMEOUT_MS);
+
+  let res;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+  } catch (e) {
+    clearTimeout(timeoutId);
+    if (e.name === 'AbortError') {
+      const err = new Error(`Tempo esgotado ao chamar a API em ${API_URL}. Verifique se o servidor está rodando.`);
+      err.status = 0;
+      throw err;
+    }
+    const err = new Error(`Falha de rede: ${e.message}. URL: ${API_URL}${path}`);
+    err.status = 0;
+    throw err;
+  }
+  clearTimeout(timeoutId);
 
   if (res.status === 204) return null;
 
