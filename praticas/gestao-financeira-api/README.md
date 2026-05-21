@@ -214,28 +214,121 @@ Servidor força esse escopo em todas as queries usando `req.user.id` do JWT — 
 
 ---
 
-## 📮 Postman
+## 📮 Postman — passo a passo
 
-Collection em [`postman/collection.json`](./postman/collection.json).
+Collection oficial em [`postman/collection.json`](./postman/collection.json). 17 requisições com testes assertivos (`pm.test`) e encadeamento automático de variáveis (`token`, `categoryId`, `customCategoryId`, `transactionId`, `tokenSecondary`).
 
-**Importar:** Postman → Import → arrastar o arquivo. A collection já traz:
-- variável `baseUrl = http://localhost:3000`
-- requisição **Auth - Login** que captura `{{token}}` em `collectionVariables`
-- todas as outras requisições já usam `Authorization: Bearer {{token}}`
+### 1. Instalar / abrir Postman
 
-**Roteiro (ordem importa — variáveis encadeadas):**
-1. `Health-check` → confirma `ok: true`.
-2. `Auth - Register` → cria `postman@gestao.com` (ou 409 se já existir).
-3. `Auth - Login` → captura `token`.
-4. `Categories - List` → captura `categoryId` da `income` (padrão, visível a todos).
-5. `Categories - Create` → cria `health` (Saúde) com `userId` do postman → `201`.
-6. `Categories - Update` → renomeia para "Saúde e Bem-estar".
-7. `Categories - Delete (custom)` → `204` (o próprio dono apagando).
-8. `Categories - Delete default` → **`400` "Categorias padrão não podem ser excluídas"**.
-9. `Transactions - Create` → cria "Salário de outubro" com `categoryId` da `income` → 201.
-10. `Transactions - List` / `Transactions - Summary`.
-11. `Transactions - Delete` → 204.
-12. `Validação - body inválido` → **`400` `error: "Dados inválidos"` + `details[]`**.
+- Baixe em https://www.postman.com/downloads/ (versão Desktop) **ou** use a versão Web em https://web.postman.co.
+- Faça login (ou pule, se a versão permitir).
+
+### 2. Subir a API antes de tudo
+
+```powershell
+cd praticas\gestao-financeira-api
+npm run dev
+```
+
+Deve aparecer `API rodando em http://localhost:3000`. **Deixe o terminal aberto.**
+
+### 3. Importar a collection
+
+1. No Postman, clique em **Import** (canto superior esquerdo, ou `Ctrl+O`).
+2. Arraste o arquivo `praticas/gestao-financeira-api/postman/collection.json` para a janela.
+3. Clique em **Import** e confirme.
+4. Aparecerá no painel esquerdo uma coleção chamada **"Gestão Financeira API"**.
+
+### 4. Conferir as variáveis da collection
+
+1. Clique no nome da collection → aba **Variables**.
+2. Deve ter:
+   | Variável | Valor inicial | Função |
+   | :--- | :--- | :--- |
+   | `baseUrl` | `http://localhost:3000` | URL da API local |
+   | `token` | *(vazio)* | Preenchido pelo `Auth - Login` |
+   | `tokenSecondary` | *(vazio)* | Preenchido pelo segundo login (testes multi-user) |
+   | `categoryId` | *(vazio)* | Id da `income` capturado em `Categories - List` |
+   | `customCategoryId` | *(vazio)* | Id da categoria custom criada |
+   | `transactionId` | *(vazio)* | Id da transação criada |
+3. Se for testar contra outro host (ex.: API hospedada), troque o `baseUrl` na coluna **Current Value** e clique em **Save**.
+
+### 5. Rodar request por request (recomendado na primeira vez)
+
+A ordem **importa** — os testes capturam variáveis que as requisições seguintes consomem.
+
+| # | Request | Esperado |
+| :-: | :--- | :--- |
+| 1 | `Health-check` | `200 { "ok": true, "name": "gestao-financeira-api" }` |
+| 2 | `Auth - Register` | `201` (cria `postman@gestao.com`) ou `409` se já existia |
+| 3 | `Auth - Login` | `200` — **captura `{{token}}` automaticamente** |
+| 4 | `Auth - Me` | `200` retornando dados do usuário logado |
+| 5 | `Categories - List` | `200` com ≥5 categorias; **captura `{{categoryId}}` da `income`** |
+| 6 | `Categories - Create` | `201` criando `health` com `isDefault=false`; **captura `{{customCategoryId}}`** |
+| 7 | `Categories - Update` | `200` renomeando para "Saúde e Bem-estar" |
+| 8 | `Categories - Delete (custom)` | `204 No Content` |
+| 9 | `Categories - Delete default` | `400 "Categorias padrão não podem ser excluídas"` |
+| 10 | `Transactions - Create` | `201` com `category` aninhada; **captura `{{transactionId}}`** |
+| 11 | `Transactions - List` | `200` listando a transação criada |
+| 12 | `Transactions - Summary` | `200 { income, expense, balance, byCategory[] }` |
+| 13 | `Transactions - Delete` | `204 No Content` |
+| 14 | `Validação - body inválido` | `400 { error: "Dados inválidos", details: [...] }` |
+| 15 | `Multi-user - Register secundário` | `201` ou `409` (cria `postman-2@gestao.com`) |
+| 16 | `Multi-user - Login secundário` | `200` — **captura `{{tokenSecondary}}`** |
+| 17 | `Multi-user - Categorias do secundário` | `200` retornando **só as 5 padrão** (0 customs) |
+| 18 | `Multi-user - Transações do secundário` | `200 []` (lista vazia, isolamento provado) |
+
+**Como executar uma request:**
+1. Clique na request no painel esquerdo.
+2. Clique no botão azul **Send** (canto superior direito).
+3. Olhe o painel inferior:
+   - **Body** → resposta JSON da API.
+   - **Test Results** (aba ao lado de Body/Headers) → mostra `✔ PASS` ou `✘ FAIL` para cada `pm.test`.
+   - Cada request marca seus próprios testes como verde/vermelho na lista do menu lateral.
+
+### 6. Rodar tudo de uma vez (Collection Runner)
+
+Quando já validar manualmente, dá pra rodar a coleção inteira em sequência.
+
+1. Clique nos `...` ao lado do nome da collection no painel esquerdo.
+2. Selecione **Run collection**.
+3. Na tela do Runner:
+   - **Iterations:** `1`
+   - **Delay:** `0` ms (ou `100` se quiser ver passar mais devagar)
+   - **Data:** vazio
+   - **Persist responses for a session:** ✓ (opcional, ajuda a debugar)
+4. Clique **Run Gestão Financeira API**.
+5. Veja o relatório: cada request com seus testes em verde. Deve dar **PASS em tudo**.
+
+### 7. Limpar entre execuções
+
+A collection é idempotente — pode rodar várias vezes seguidas. Mas se quiser começar do zero:
+
+```powershell
+# Stoppe API (Ctrl+C no terminal dela)
+cd praticas\gestao-financeira-api
+
+# Reseta o banco (apaga tudo + reaplica migrations + roda seed)
+$env:PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION="confirmo reset"
+npx prisma migrate reset --force
+
+# Sobe API de novo
+npm run dev
+```
+
+> ⚠️ `migrate reset` **apaga todos os dados** do banco `gestao_financeira` (usuários, categorias custom, transações). Use só em ambiente de desenvolvimento.
+
+### 8. Erros comuns no Postman
+
+| Sintoma | Causa | Como resolver |
+| :--- | :--- | :--- |
+| `Error: connect ECONNREFUSED 127.0.0.1:3000` | API não está rodando. | `npm run dev` no diretório da API. |
+| `401 Token não fornecido` em qualquer rota | Esqueceu de rodar `Auth - Login` antes. | Rode `Auth - Login`, depois a request que falhou. |
+| `401 Token inválido ou expirado` | Token muito antigo (expirou em 7d) ou `JWT_SECRET` mudou. | Rode `Auth - Login` de novo. |
+| `409 E-mail já cadastrado` em `Auth - Register` | Conta já existe no banco. | Esperado — siga pra `Auth - Login`. |
+| `400 Categorias padrão não podem ser excluídas` em qualquer DELETE | Tentou apagar default. | Esperado no teste específico; senão use `{{customCategoryId}}`. |
+| `Could not get response` | URL/host errado em `baseUrl`. | Confira **Variables** da collection. |
+| Test Results todos vermelhos | Banco vazio ou seed não rodou. | `npm run prisma:seed` na API. |
 
 ---
 
