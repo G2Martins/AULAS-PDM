@@ -1,25 +1,86 @@
 {
   "info": {
     "name": "Gestão Financeira API",
-    "_postman_id": "b8b9e0d1-2a3a-4f1c-9a0f-7c1f0c0c0c0c",
-    "description": "Collection oficial da API gestao-financeira-api (Express + Prisma + MySQL + JWT).\n\nMulti-usuário: cada token só enxerga as próprias categorias customizadas e transações. As 5 categorias padrão (income, food, transport, leisure, others — userId=NULL) são visíveis a todos.\n\nOrdem importa: rode na sequência (variáveis são encadeadas via test scripts).",
+    "_postman_id": "d05bd974-51c0-46ea-b257-d58d8ac64d38",
+    "description": "# 📮 Gestão Financeira API — Collection oficial\n\nColeção de testes que valida exatamente o roteiro do professor (10 passos).\n\n## ⚙️ Antes de começar\n\n1. **Suba o MySQL** (`MySQL80` service).\n2. **Suba a API** na porta `3000`:\n   ```bash\n   cd praticas/gestao-financeira-api\n   npm run dev\n   ```\n3. **Rode o seed** uma vez (cria 5 categorias padrão + usuário demo):\n   ```bash\n   npm run prisma:seed\n   ```\n4. **No Postman:** edite a variável `baseUrl` (aba **Variables** da Collection) se a API não estiver em `http://localhost:3000`.\n\n## 🔐 Por que tem um passo `0. Login`?\n\nO professor especificou as rotas sem autenticação, mas a API foi entregue com **JWT (multi-usuário)** como extra. Por isso:\n\n- A primeira request `0. Setup - Login` autentica com a conta `demo@gestao.com / demo123` (criada pelo seed) e **captura o token automaticamente** em `{{token}}`.\n- Todas as outras requests usam `Authorization: Bearer {{token}}` automaticamente.\n- **Rode `0. Setup - Login` UMA vez antes dos 10 passos.**\n\n## 🧭 Ordem importa\n\nOs passos compartilham variáveis (`{{categoryId}}`, `{{customCategoryId}}`, `{{transactionId}}`) capturadas pelos test scripts. Rode em ordem:\n\n0. Setup - Login\n1. Health-check\n2. Listar categorias (captura `categoryId` da `income`)\n3. Criar categoria (`health` / `Saúde`) — captura `customCategoryId`\n4. Atualizar categoria\n5. Excluir categoria custom (204)\n6. Excluir categoria padrão (esperado **400**)\n7. Criar transação — captura `transactionId`\n8. Listar transações\n9. Excluir transação (204)\n10. Validar erros (body inválido → **400** com `details[]`)\n\n## ▶️ Rodar tudo de uma vez\n\nClique nos `...` ao lado do nome da Collection → **Run collection** → **Run Gestão Financeira API**. Todos os testes devem passar verde.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3000" },
-    { "key": "token", "value": "" },
-    { "key": "tokenSecondary", "value": "" },
-    { "key": "categoryId", "value": "" },
-    { "key": "customCategoryId", "value": "" },
-    { "key": "transactionId", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "categoryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "customCategoryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "transactionId",
+      "value": "",
+      "type": "string"
+    }
   ],
   "item": [
     {
-      "name": "Health-check",
+      "name": "0. Setup - Login (rodar 1x antes)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"demo@gestao.com\",\n  \"password\": \"demo123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "login"]
+        },
+        "description": "## 🔐 Login inicial — execute UMA vez antes dos demais\n\nUsa a conta demo criada pelo seed (`npm run prisma:seed`).\n\n**Body:**\n```json\n{\n  \"email\": \"demo@gestao.com\",\n  \"password\": \"demo123\"\n}\n```\n\n**Resposta esperada:** `200 OK`\n```json\n{\n  \"user\": { \"id\": 1, \"name\": \"Usuário Demo\", \"email\": \"demo@gestao.com\" },\n  \"token\": \"eyJhbGc...\"\n}\n```\n\n**Efeito colateral:** o test script captura `body.token` e salva em `{{token}}` da Collection (visível em **Variables**). Todas as outras requests usam esse token via `Authorization: Bearer {{token}}`.\n\n**Erros possíveis:**\n- `401 Credenciais inválidas` → senha errada ou seed não rodou. Rode `npm run prisma:seed`.\n- `ECONNREFUSED` → API não está rodando. Rode `npm run dev`."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Login retorna 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Resposta contém user e token', () => {",
+              "  pm.expect(body).to.have.property('user');",
+              "  pm.expect(body).to.have.property('token');",
+              "});",
+              "pm.collectionVariables.set('token', body.token);",
+              "console.log('Token capturado em {{token}}. Pode rodar os próximos passos.');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Health-check",
       "request": {
         "method": "GET",
         "header": [],
-        "url": { "raw": "{{baseUrl}}/", "host": ["{{baseUrl}}"], "path": [""] }
+        "url": {
+          "raw": "{{baseUrl}}/",
+          "host": ["{{baseUrl}}"],
+          "path": [""]
+        },
+        "description": "## Passo 1 — Health-check\n\n`GET {{baseUrl}}/`\n\n**Resposta esperada:**\n```json\n{ \"ok\": true, \"name\": \"gestao-financeira-api\" }\n```\n\nServe pra confirmar que a API está no ar. **Não precisa de token.**"
       },
       "event": [
         {
@@ -37,72 +98,18 @@
       ]
     },
     {
-      "name": "Auth - Register",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"name\": \"Usuário Postman\",\n  \"email\": \"postman@gestao.com\",\n  \"password\": \"postman123\"\n}"
-        },
-        "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "if ([201, 409].includes(pm.response.code)) {",
-              "  pm.test('Register OK ou já existe', () => {});",
-              "} else {",
-              "  pm.test('Falhou register', () => pm.response.to.have.status(201));",
-              "}"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "Auth - Login (captura token)",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"postman@gestao.com\",\n  \"password\": \"postman123\"\n}"
-        },
-        "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Status 200', () => pm.response.to.have.status(200));",
-              "const body = pm.response.json();",
-              "pm.collectionVariables.set('token', body.token);",
-              "pm.test('Token recebido', () => pm.expect(body.token).to.be.a('string'));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "Auth - Me",
+      "name": "2. Listar categorias (captura income)",
       "request": {
         "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-        "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] }
-      }
-    },
-    {
-      "name": "Categories - List (captura income id)",
-      "request": {
-        "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-        "url": { "raw": "{{baseUrl}}/categories", "host": ["{{baseUrl}}"], "path": ["categories"] }
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/categories",
+          "host": ["{{baseUrl}}"],
+          "path": ["categories"]
+        },
+        "description": "## Passo 2 — Listar categorias\n\n`GET {{baseUrl}}/categories`\n\n**Resposta esperada:** `200 OK` com **as 5 categorias inseridas pelo seed**:\n\n| name | displayName | isIncome | isDefault |\n| :--- | :--- | :--- | :--- |\n| `income` | Receita | true | true |\n| `food` | Alimentação | false | true |\n| `transport` | Transporte | false | true |\n| `leisure` | Lazer | false | true |\n| `others` | Outros | false | true |\n\n**Efeito colateral:** o test script copia o `id` da categoria `income` para `{{categoryId}}` (usado no passo 7).\n\n> 💡 No spec do professor: \"Copie o id da categoria `income` (você vai usar no próximo teste).\" Este passo automatiza isso."
       },
       "event": [
         {
@@ -112,16 +119,23 @@
             "exec": [
               "pm.test('Status 200', () => pm.response.to.have.status(200));",
               "const list = pm.response.json();",
-              "pm.test('Pelo menos 5 categorias padrão', () => pm.expect(list.length).to.be.at.least(5));",
+              "pm.test('Trouxe pelo menos 5 categorias padrão', () => {",
+              "  const defaults = list.filter(c => c.isDefault);",
+              "  pm.expect(defaults.length).to.be.at.least(5);",
+              "});",
               "const income = list.find(c => c.name === 'income');",
-              "if (income) { pm.collectionVariables.set('categoryId', income.id); }"
+              "pm.test(\"Categoria 'income' existe\", () => pm.expect(income).to.be.an('object'));",
+              "if (income) {",
+              "  pm.collectionVariables.set('categoryId', income.id);",
+              "  console.log('categoryId (income) capturado:', income.id);",
+              "}"
             ]
           }
         }
       ]
     },
     {
-      "name": "Categories - Create",
+      "name": "3. Criar categoria (health / Saúde)",
       "request": {
         "method": "POST",
         "header": [
@@ -132,7 +146,12 @@
           "mode": "raw",
           "raw": "{\n  \"name\": \"health\",\n  \"displayName\": \"Saúde\",\n  \"icon\": \"favorite\",\n  \"background\": \"#FFB6B6\",\n  \"isIncome\": false\n}"
         },
-        "url": { "raw": "{{baseUrl}}/categories", "host": ["{{baseUrl}}"], "path": ["categories"] }
+        "url": {
+          "raw": "{{baseUrl}}/categories",
+          "host": ["{{baseUrl}}"],
+          "path": ["categories"]
+        },
+        "description": "## Passo 3 — Criar uma nova categoria\n\n`POST {{baseUrl}}/categories`\n\n**Body** (raw JSON):\n```json\n{\n  \"name\": \"health\",\n  \"displayName\": \"Saúde\",\n  \"icon\": \"favorite\",\n  \"background\": \"#FFB6B6\",\n  \"isIncome\": false\n}\n```\n\n**Resposta esperada:** `201 Created` com o objeto criado (inclui `id` gerado, `userId` do usuário logado, `isDefault: false`).\n\n**Efeito colateral:** captura `id` em `{{customCategoryId}}` para os passos 4 e 5.\n\n> ⚠️ Se aparecer `409 Registro duplicado`, é porque você já criou essa categoria antes (mesmo `name` + `userId`). Rode o passo 5 (delete custom) e tente de novo, ou mude o `name` no body."
       },
       "event": [
         {
@@ -140,22 +159,20 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "if (pm.response.code === 201) {",
-              "  const body = pm.response.json();",
-              "  pm.collectionVariables.set('customCategoryId', body.id);",
-              "  pm.test('Criou customizada', () => pm.expect(body.isDefault).to.eql(false));",
-              "} else if (pm.response.code === 409) {",
-              "  pm.test('Já existia (duplicada)', () => {});",
-              "} else {",
-              "  pm.test('Esperava 201 ou 409', () => pm.response.to.have.status(201));",
-              "}"
+              "pm.test('Status 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test(\"Retornou o objeto com 'id'\", () => pm.expect(body.id).to.be.a('number'));",
+              "pm.test(\"name = 'health'\", () => pm.expect(body.name).to.eql('health'));",
+              "pm.test('isDefault = false', () => pm.expect(body.isDefault).to.eql(false));",
+              "pm.collectionVariables.set('customCategoryId', body.id);",
+              "console.log('customCategoryId capturado:', body.id);"
             ]
           }
         }
       ]
     },
     {
-      "name": "Categories - Update",
+      "name": "4. Atualizar categoria",
       "request": {
         "method": "PUT",
         "header": [
@@ -164,46 +181,68 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{ \"displayName\": \"Saúde e Bem-estar\" }"
+          "raw": "{\n  \"displayName\": \"Saúde e Bem-estar\"\n}"
         },
         "url": {
           "raw": "{{baseUrl}}/categories/{{customCategoryId}}",
           "host": ["{{baseUrl}}"],
           "path": ["categories", "{{customCategoryId}}"]
-        }
-      }
-    },
-    {
-      "name": "Categories - Delete (custom)",
-      "request": {
-        "method": "DELETE",
-        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-        "url": {
-          "raw": "{{baseUrl}}/categories/{{customCategoryId}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["categories", "{{customCategoryId}}"]
-        }
+        },
+        "description": "## Passo 4 — Atualizar categoria\n\n`PUT {{baseUrl}}/categories/:id` (o `:id` aqui é `{{customCategoryId}}`, capturado no passo 3)\n\n**Body** (raw JSON):\n```json\n{ \"displayName\": \"Saúde e Bem-estar\" }\n```\n\n**Resposta esperada:** `200 OK` com a categoria atualizada (`displayName` agora é `Saúde e Bem-estar`).\n\n> Categorias padrão não podem ser atualizadas (retornam `403`). Por isso só fazemos PUT em customs."
       },
       "event": [
         {
           "listen": "test",
           "script": {
             "type": "text/javascript",
-            "exec": ["pm.test('Status 204', () => pm.response.to.have.status(204));"]
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"displayName atualizado\", () => pm.expect(body.displayName).to.eql('Saúde e Bem-estar'));"
+            ]
           }
         }
       ]
     },
     {
-      "name": "Categories - Delete default (esperado 400)",
+      "name": "5. Excluir categoria custom (204)",
       "request": {
         "method": "DELETE",
-        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/categories/{{customCategoryId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["categories", "{{customCategoryId}}"]
+        },
+        "description": "## Passo 5 — Excluir categoria custom\n\n`DELETE {{baseUrl}}/categories/:id` (usa `{{customCategoryId}}` do passo 3)\n\n**Resposta esperada:** `204 No Content` (resposta vazia)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 204', () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Excluir categoria padrão (esperado 400)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
         "url": {
           "raw": "{{baseUrl}}/categories/{{categoryId}}",
           "host": ["{{baseUrl}}"],
           "path": ["categories", "{{categoryId}}"]
-        }
+        },
+        "description": "## Passo 6 — Excluir categoria padrão (deve falhar)\n\n`DELETE {{baseUrl}}/categories/:id` (usa `{{categoryId}}` = id da `income`)\n\n**Resposta esperada:** `400 Bad Request`\n```json\n{ \"error\": \"Categorias padrão não podem ser excluídas\" }\n```\n\nValida a proteção de seed do professor: padrão (`isDefault: true`) **não** pode ser apagada."
       },
       "event": [
         {
@@ -213,14 +252,14 @@
             "exec": [
               "pm.test('Status 400', () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
-              "pm.test('Mensagem padrão bloqueada', () => pm.expect(body.error).to.eql('Categorias padrão não podem ser excluídas'));"
+              "pm.test(\"Mensagem exata\", () => pm.expect(body.error).to.eql('Categorias padrão não podem ser excluídas'));"
             ]
           }
         }
       ]
     },
     {
-      "name": "Transactions - Create",
+      "name": "7. Criar transação (Salário de outubro)",
       "request": {
         "method": "POST",
         "header": [
@@ -231,7 +270,12 @@
           "mode": "raw",
           "raw": "{\n  \"description\": \"Salário de outubro\",\n  \"value\": 3500.50,\n  \"date\": \"2026-04-29\",\n  \"categoryId\": {{categoryId}}\n}"
         },
-        "url": { "raw": "{{baseUrl}}/transactions", "host": ["{{baseUrl}}"], "path": ["transactions"] }
+        "url": {
+          "raw": "{{baseUrl}}/transactions",
+          "host": ["{{baseUrl}}"],
+          "path": ["transactions"]
+        },
+        "description": "## Passo 7 — Criar transação\n\n`POST {{baseUrl}}/transactions`\n\n**Body** (raw JSON — o `{{categoryId}}` é o id da `income`, capturado no passo 2):\n```json\n{\n  \"description\": \"Salário de outubro\",\n  \"value\": 3500.50,\n  \"date\": \"2026-04-29\",\n  \"categoryId\": {{categoryId}}\n}\n```\n\n**Resposta esperada:** `201 Created` com a transação criada **e a `category` aninhada** (objeto Category completo, não só o id):\n```json\n{\n  \"id\": 1,\n  \"description\": \"Salário de outubro\",\n  \"value\": \"3500.50\",\n  \"date\": \"2026-04-29T00:00:00.000Z\",\n  \"categoryId\": 1,\n  \"userId\": 1,\n  \"category\": { \"id\": 1, \"name\": \"income\", \"displayName\": \"Receita\", ... }\n}\n```\n\n**Efeito colateral:** captura `id` em `{{transactionId}}` para o passo 9."
       },
       "event": [
         {
@@ -241,142 +285,31 @@
             "exec": [
               "pm.test('Status 201', () => pm.response.to.have.status(201));",
               "const body = pm.response.json();",
-              "pm.test('Category aninhada', () => pm.expect(body.category).to.be.an('object'));",
-              "pm.collectionVariables.set('transactionId', body.id);"
+              "pm.test(\"description = 'Salário de outubro'\", () => pm.expect(body.description).to.eql('Salário de outubro'));",
+              "pm.test('category aninhada', () => {",
+              "  pm.expect(body.category).to.be.an('object');",
+              "  pm.expect(body.category.name).to.eql('income');",
+              "});",
+              "pm.collectionVariables.set('transactionId', body.id);",
+              "console.log('transactionId capturado:', body.id);"
             ]
           }
         }
       ]
     },
     {
-      "name": "Transactions - List",
+      "name": "8. Listar transações",
       "request": {
         "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-        "url": { "raw": "{{baseUrl}}/transactions", "host": ["{{baseUrl}}"], "path": ["transactions"] }
-      }
-    },
-    {
-      "name": "Transactions - Summary",
-      "request": {
-        "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-        "url": {
-          "raw": "{{baseUrl}}/transactions/summary",
-          "host": ["{{baseUrl}}"],
-          "path": ["transactions", "summary"]
-        }
-      }
-    },
-    {
-      "name": "Transactions - Delete",
-      "request": {
-        "method": "DELETE",
-        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-        "url": {
-          "raw": "{{baseUrl}}/transactions/{{transactionId}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["transactions", "{{transactionId}}"]
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": ["pm.test('Status 204', () => pm.response.to.have.status(204));"]
-          }
-        }
-      ]
-    },
-    {
-      "name": "Validação - body inválido",
-      "request": {
-        "method": "POST",
         "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}" },
-          { "key": "Content-Type", "value": "application/json" }
+          { "key": "Authorization", "value": "Bearer {{token}}" }
         ],
-        "body": { "mode": "raw", "raw": "{ \"description\": \"\" }" },
-        "url": { "raw": "{{baseUrl}}/transactions", "host": ["{{baseUrl}}"], "path": ["transactions"] }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Status 400', () => pm.response.to.have.status(400));",
-              "const body = pm.response.json();",
-              "pm.test('error = Dados inválidos', () => pm.expect(body.error).to.eql('Dados inválidos'));",
-              "pm.test('details é array', () => pm.expect(body.details).to.be.an('array'));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "Multi-user - Register secundário",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"name\": \"Postman Secundario\",\n  \"email\": \"postman-2@gestao.com\",\n  \"password\": \"postman123\"\n}"
+        "url": {
+          "raw": "{{baseUrl}}/transactions",
+          "host": ["{{baseUrl}}"],
+          "path": ["transactions"]
         },
-        "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "if ([201, 409].includes(pm.response.code)) {",
-              "  if (pm.response.code === 201) {",
-              "    const body = pm.response.json();",
-              "    pm.collectionVariables.set('tokenSecondary', body.token);",
-              "  }",
-              "  pm.test('Register secundário OK ou já existia', () => {});",
-              "} else {",
-              "  pm.test('Falhou register secundário', () => pm.response.to.have.status(201));",
-              "}"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "Multi-user - Login secundário",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"postman-2@gestao.com\",\n  \"password\": \"postman123\"\n}"
-        },
-        "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Status 200', () => pm.response.to.have.status(200));",
-              "const body = pm.response.json();",
-              "pm.collectionVariables.set('tokenSecondary', body.token);"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "Multi-user - Categorias do secundário (só defaults)",
-      "request": {
-        "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{tokenSecondary}}" }],
-        "url": { "raw": "{{baseUrl}}/categories", "host": ["{{baseUrl}}"], "path": ["categories"] }
+        "description": "## Passo 8 — Listar transações\n\n`GET {{baseUrl}}/transactions`\n\n**Resposta esperada:** `200 OK` — array com **a transação criada no passo 7**, já com `category` expandida.\n\n> O usuário demo só vê as próprias transações (multi-user scoping)."
       },
       "event": [
         {
@@ -386,20 +319,30 @@
             "exec": [
               "pm.test('Status 200', () => pm.response.to.have.status(200));",
               "const list = pm.response.json();",
-              "const customs = list.filter(c => !c.isDefault);",
-              "pm.test('Usuário secundário não vê customs do primário', () => pm.expect(customs.length).to.eql(0));",
-              "pm.test('Vê as 5 padrão', () => pm.expect(list.filter(c => c.isDefault).length).to.eql(5));"
+              "pm.test('É array', () => pm.expect(list).to.be.an('array'));",
+              "pm.test('Inclui transação criada no passo 7', () => {",
+              "  const created = list.find(t => t.id === Number(pm.collectionVariables.get('transactionId')));",
+              "  pm.expect(created, 'transação esperada não veio na lista').to.be.an('object');",
+              "  pm.expect(created.category).to.be.an('object');",
+              "});"
             ]
           }
         }
       ]
     },
     {
-      "name": "Multi-user - Transações do secundário (vazio)",
+      "name": "9. Excluir transação",
       "request": {
-        "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{tokenSecondary}}" }],
-        "url": { "raw": "{{baseUrl}}/transactions", "host": ["{{baseUrl}}"], "path": ["transactions"] }
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/transactions/{{transactionId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["transactions", "{{transactionId}}"]
+        },
+        "description": "## Passo 9 — Excluir transação\n\n`DELETE {{baseUrl}}/transactions/:id` (usa `{{transactionId}}` do passo 7)\n\n**Resposta esperada:** `204 No Content`."
       },
       "event": [
         {
@@ -407,8 +350,50 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('Status 200', () => pm.response.to.have.status(200));",
-              "pm.test('Sem transações do outro usuário', () => pm.expect(pm.response.json()).to.eql([]));"
+              "pm.test('Status 204', () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Validar erros (body inválido → 400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"description\": \"\" }"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/transactions",
+          "host": ["{{baseUrl}}"],
+          "path": ["transactions"]
+        },
+        "description": "## Passo 10 — Validar erros (Zod barrando entrada)\n\n`POST {{baseUrl}}/transactions` com **body propositalmente inválido**:\n```json\n{ \"description\": \"\" }\n```\n\nFalta `value`, `categoryId`, e `description` está vazia.\n\n**Resposta esperada:** `400 Bad Request`\n```json\n{\n  \"error\": \"Dados inválidos\",\n  \"details\": [\n    { \"path\": \"description\", \"message\": \"Descrição é obrigatória\" },\n    { \"path\": \"value\", \"message\": \"Required\" },\n    { \"path\": \"categoryId\", \"message\": \"Required\" }\n  ]\n}\n```\n\n> É o Zod barrando a entrada — exatamente como o professor pediu."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"error = 'Dados inválidos'\", () => pm.expect(body.error).to.eql('Dados inválidos'));",
+              "pm.test('details é array com >= 1 item', () => {",
+              "  pm.expect(body.details).to.be.an('array');",
+              "  pm.expect(body.details.length).to.be.at.least(1);",
+              "});",
+              "pm.test('cada item tem path e message', () => {",
+              "  body.details.forEach(d => {",
+              "    pm.expect(d).to.have.property('path');",
+              "    pm.expect(d).to.have.property('message');",
+              "  });",
+              "});"
             ]
           }
         }
